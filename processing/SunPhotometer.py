@@ -1,16 +1,17 @@
 import logging
 import numpy as np
-from datetime import datetime
+import pandas as pd
 from earth_sun_distance_correction import get_earth_sun_distance_correction
 from atmospheric_mass import get_air_mass, get_ozone_path_length
 from calibration.calibration import parse_sunphotometer_calibration
 from utils.converters import _convert_to_dict, date_time, time_convert
 
-
 class SunPhotometer:
 
     def __init__(self, calibration_frame, logger=logging):
         self.signal_names = ['SIG380', 'SIG440', 'SIG500', 'SIG675', 'SIG870']
+        self.aot_names = ['AOT380', 'AOT440', 'AOT500', 'AOT675', 'AOT870']
+        sequence = []
         self.calibration_frame = calibration_frame['sun']
         self.logger = logger
         self.reference_wavelength=550  # nm
@@ -55,7 +56,6 @@ class SunPhotometer:
         @rtype: float
         @return Return
         """
-        print(self.__data.keys())
         zenith = self.__data['SZA']
         lat = self.__data['LATITUDE']
         h = self.__data['ALTITUDE']
@@ -69,22 +69,37 @@ class SunPhotometer:
                 amo3.reshape((len(amo3), 1)) * (ozone / 0.3316 * self.calibration_frame['ozone_ot']  +
                         self.calibration_frame['no2_ot'])
         self.tau_a = (1 / am.reshape((len(am), 1))) * (self.calibration_frame['lnv0'] - LNsig)
+        tmp_dict = dict(zip(self.aot_names, zip(*self.tau_a)))
+        self.data['sun'].update(tmp_dict)
         return self.tau_a
 
     def calculate_aengstrom_exponent(self):
 
         lnlambda = np.log(self.calibration_frame['channel'] / self.reference_wavelength)
         lnaot = np.log(self.tau_a)
-        import matplotlib.pyplot as plt
-        plt.plot(lnlambda, np.transpose(lnaot))
-        plt.show()
-        print(self.signal)
+        # import matplotlib.pyplot as plt
+        # plt.plot(lnlambda, np.transpose(lnaot))
+        # plt.show()
         self.alphas = np.zeros(len(lnaot))
         for idx, aot_stamp in enumerate(lnaot):
             p = np.polyfit(lnlambda, aot_stamp, deg=1)
             self.alphas[idx] = p[0]
+        self.data['sun']['Aengstrom_exponent'] = self.alphas
         return self.alphas
 
+    def ___merge_date_time(self):
+        tmp_list = []
+        for date, time in zip(self.data['sun']['DATE'], self.data['sun']['TIME']):
+            timetup = time.timetuple()
+            tmp_list.append(date.replace(hour=timetup.tm_hour, minute=timetup.tm_min, second=timetup.tm_sec))
+        return np.array(tmp_list)
+
+
+    def get_formatted_frame(self):
+        frame = pd.DataFrame.from_dict(self.data['sun'])
+        time_stamps = self.___merge_date_time()
+        frame.insert(0, 'TIME_STAMPS', time_stamps)
+        frame.to_csv('test.csv')
 
 
 if __name__ == "__main__":

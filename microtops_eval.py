@@ -39,18 +39,17 @@ def microtops_evaluation(config, logger):
     # Calibration_data
     cal = Calibration(config['Calibration'], config['Processing'], logger)
     calibration_constants = cal.get_constants()
-    print(calibration_constants['sun']) 
+    print(calibration_constants['sun'])
     factory = DeviceIniFactory(config['Processing'])
-    object_device = factory.getObject() 
+    object_device = factory.getObject()
     device = object_device(calibration_constants, logger)
     device.parse(config['Data']['files'])
     # # Presentation
+    device.calculate_AOT()
+    device.calculate_aengstrom_exponent()
     frame = device.get_raw()
-    aots = device.calculate_AOT()
-    print(aots)
-    alphas = device.calculate_aengstrom_exponent()
-    print(frame['TIME'])
-    print(alphas)
+    device.get_formatted_frame()
+    print(frame)
 
 
 if __name__ == "__main__":

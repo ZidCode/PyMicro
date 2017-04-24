@@ -11,4 +11,3 @@ def parse_sunphotometer_calibration(filename):
 if __name__ == "__main__":
     filename = '../calibration_files/sunphotometer_8409_calibration_backup.csv'
     data = parse_sunphotometer_calibration(filename)
-    print(data)
